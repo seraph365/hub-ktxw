@@ -1,0 +1,29 @@
+import pandas as pd
+import jieba
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+
+dataset = pd.read_csv("dataset.csv",sep = "\t",header = None)
+print(dataset.head(5))
+
+input_sentence = dataset[0].apply(lambda x: " ".join(jieba.lcut(x)))
+vector = CountVectorizer()
+vector.fit(input_sentence.values)
+input_feature = vector.transform(input_sentence.values)
+
+model1 = KNeighborsClassifier()
+model1.fit(input_feature,dataset[1].values)
+
+model2 = LogisticRegression()
+model2.fit(input_feature,dataset[1].values)
+
+
+test_query =  "帮我导航到北京"
+test_sentence = " ".join(jieba.lcut(test_query))
+test_feature = vector.transform([test_sentence])
+print("待预测的本文：",test_query)
+print("KNN模型预测结果：",model1.predict(test_feature))
+
+print("待预测的本文：",test_query)
+print("逻辑回归模型预测结果：",model2.predict(test_feature))
