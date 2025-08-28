@@ -1,0 +1,391 @@
+
+总结： 通过中间层分别为1，2，3 层时，并调整相应的节点数，发现当前数据集下2个中间层效果不错，
+并且随着第2个中间层的节点数增加，模型的效果越好。在中间层节点数分别为128,10240,损失率能下降到0.2843。
+增加到第3层时，效果不如第2层，并且随着节点数的增加，计算时间延长。
+因此，并不是层数越多，模型效果越好,同样也不是层数越少越好；这需要经过调整参数，对比结果找出合理的层数和节点数。
+
+一个中间层
+hidden_dim = 128
+Epoch [1/10], Loss: 2.4700
+Epoch [2/10], Loss: 2.2394
+Epoch [3/10], Loss: 1.9041
+Epoch [4/10], Loss: 1.5138
+Epoch [5/10], Loss: 1.1856
+Epoch [6/10], Loss: 0.9599
+Epoch [7/10], Loss: 0.8088
+Epoch [8/10], Loss: 0.7076
+Epoch [9/10], Loss: 0.6342
+Epoch [10/10], Loss: 0.5804
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+一个中间层
+hidden_dim = 256
+Epoch [1/10], Loss: 2.4753
+Epoch [2/10], Loss: 2.2523
+Epoch [3/10], Loss: 1.9298
+Epoch [4/10], Loss: 1.5507
+Epoch [5/10], Loss: 1.2214
+Epoch [6/10], Loss: 0.9847
+Epoch [7/10], Loss: 0.8246
+Epoch [8/10], Loss: 0.7178
+Epoch [9/10], Loss: 0.6414
+Epoch [10/10], Loss: 0.5854
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+一个中间层
+hidden_dim = 512
+Epoch [1/10], Loss: 2.4735
+Epoch [2/10], Loss: 2.2440
+Epoch [3/10], Loss: 1.9114
+Epoch [4/10], Loss: 1.5281
+Epoch [5/10], Loss: 1.2034
+Epoch [6/10], Loss: 0.9756
+Epoch [7/10], Loss: 0.8233
+Epoch [8/10], Loss: 0.7204
+Epoch [9/10], Loss: 0.6430
+Epoch [10/10], Loss: 0.5862
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+一层神经网络总结：只有一层中间层，增加节点数并没有取得明显效果
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 8
+Epoch [1/10], Loss: 2.5288
+Epoch [2/10], Loss: 2.4473
+Epoch [3/10], Loss: 2.3629
+Epoch [4/10], Loss: 2.2341
+Epoch [5/10], Loss: 2.0173
+Epoch [6/10], Loss: 1.7412
+Epoch [7/10], Loss: 1.4672
+Epoch [8/10], Loss: 1.2029
+Epoch [9/10], Loss: 0.9894
+Epoch [10/10], Loss: 0.8255
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 16
+Epoch [1/10], Loss: 2.5378
+Epoch [2/10], Loss: 2.4489
+Epoch [3/10], Loss: 2.3693
+Epoch [4/10], Loss: 2.2739
+Epoch [5/10], Loss: 2.1083
+Epoch [6/10], Loss: 1.8658
+Epoch [7/10], Loss: 1.6051
+Epoch [8/10], Loss: 1.3343
+Epoch [9/10], Loss: 1.0938
+Epoch [10/10], Loss: 0.9016
+输入 '帮我导航到北京' 预测为: 'HomeAppliance-Control'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 64
+Epoch [1/10], Loss: 2.5161
+Epoch [2/10], Loss: 2.4293
+Epoch [3/10], Loss: 2.3295
+Epoch [4/10], Loss: 2.1493
+Epoch [5/10], Loss: 1.8297
+Epoch [6/10], Loss: 1.4816
+Epoch [7/10], Loss: 1.1680
+Epoch [8/10], Loss: 0.9180
+Epoch [9/10], Loss: 0.7420
+Epoch [10/10], Loss: 0.6295
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 128
+Epoch [1/10], Loss: 2.5002
+Epoch [2/10], Loss: 2.4145
+Epoch [3/10], Loss: 2.3196
+Epoch [4/10], Loss: 2.1521
+Epoch [5/10], Loss: 1.8354
+Epoch [6/10], Loss: 1.4817
+Epoch [7/10], Loss: 1.1672
+Epoch [8/10], Loss: 0.9061
+Epoch [9/10], Loss: 0.7215
+Epoch [10/10], Loss: 0.6054
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 256
+Epoch [1/10], Loss: 2.5029
+Epoch [2/10], Loss: 2.4104
+Epoch [3/10], Loss: 2.3164
+Epoch [4/10], Loss: 2.1597
+Epoch [5/10], Loss: 1.8337
+Epoch [6/10], Loss: 1.4133
+Epoch [7/10], Loss: 1.0663
+Epoch [8/10], Loss: 0.8207
+Epoch [9/10], Loss: 0.6698
+Epoch [10/10], Loss: 0.5732
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 512
+Epoch [1/10], Loss: 2.4921
+Epoch [2/10], Loss: 2.3937
+Epoch [3/10], Loss: 2.2954
+Epoch [4/10], Loss: 2.0945
+Epoch [5/10], Loss: 1.6996
+Epoch [6/10], Loss: 1.2741
+Epoch [7/10], Loss: 0.9446
+Epoch [8/10], Loss: 0.7328
+Epoch [9/10], Loss: 0.6049
+Epoch [10/10], Loss: 0.5246
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 1024
+Epoch [1/10], Loss: 2.4780
+Epoch [2/10], Loss: 2.3449
+Epoch [3/10], Loss: 2.1425
+Epoch [4/10], Loss: 1.7226
+Epoch [5/10], Loss: 1.2576
+Epoch [6/10], Loss: 0.9182
+Epoch [7/10], Loss: 0.7103
+Epoch [8/10], Loss: 0.5869
+Epoch [9/10], Loss: 0.5108
+Epoch [10/10], Loss: 0.4558
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 2048
+Epoch [1/10], Loss: 2.4550
+Epoch [2/10], Loss: 2.2998
+Epoch [3/10], Loss: 1.9888
+Epoch [4/10], Loss: 1.4324
+Epoch [5/10], Loss: 0.9695
+Epoch [6/10], Loss: 0.7140
+Epoch [7/10], Loss: 0.5782
+Epoch [8/10], Loss: 0.4997
+Epoch [9/10], Loss: 0.4448
+Epoch [10/10], Loss: 0.4035
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2个中间层
+hidden_dim = 128
+hidden_dim1 = 10240
+Epoch [1/10], Loss: 2.3481
+Epoch [2/10], Loss: 1.7383
+Epoch [3/10], Loss: 0.9604
+Epoch [4/10], Loss: 0.6233
+Epoch [5/10], Loss: 0.4913
+Epoch [6/10], Loss: 0.4164
+Epoch [7/10], Loss: 0.3691
+Epoch [8/10], Loss: 0.3342
+Epoch [9/10], Loss: 0.3078
+Epoch [10/10], Loss: 0.2843
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+2层中间层总结： 增加第二层的节点数，准确率与节点数成正比
+
+3个中间层
+hidden_dim = 128
+hidden_dim1 = 64
+hidden_dim2 = 64
+Epoch [1/10], Loss: 2.5178
+Epoch [2/10], Loss: 2.4505
+Epoch [3/10], Loss: 2.4082
+Epoch [4/10], Loss: 2.3801
+Epoch [5/10], Loss: 2.3593
+Epoch [6/10], Loss: 2.3376
+Epoch [7/10], Loss: 2.2968
+Epoch [8/10], Loss: 2.1616
+Epoch [9/10], Loss: 1.8833
+Epoch [10/10], Loss: 1.6411
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+3个中间层
+hidden_dim = 128
+hidden_dim1 = 128
+hidden_dim2 = 128
+Epoch [1/10], Loss: 2.5170
+Epoch [2/10], Loss: 2.4491
+Epoch [3/10], Loss: 2.4061
+Epoch [4/10], Loss: 2.3779
+Epoch [5/10], Loss: 2.3570
+Epoch [6/10], Loss: 2.3338
+Epoch [7/10], Loss: 2.2849
+Epoch [8/10], Loss: 2.1214
+Epoch [9/10], Loss: 1.8391
+Epoch [10/10], Loss: 1.6163
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Calendar-Query'
+
+
+3层中间层
+hidden_dim = 128
+hidden_dim1 = 256
+hidden_dim2 = 128
+Epoch [1/10], Loss: 2.5177
+Epoch [2/10], Loss: 2.4484
+Epoch [3/10], Loss: 2.4016
+Epoch [4/10], Loss: 2.3697
+Epoch [5/10], Loss: 2.3416
+Epoch [6/10], Loss: 2.2955
+Epoch [7/10], Loss: 2.1426
+Epoch [8/10], Loss: 1.8396
+Epoch [9/10], Loss: 1.5786
+Epoch [10/10], Loss: 1.3011
+输入 '帮我导航到北京' 预测为: 'HomeAppliance-Control'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+3层中间层
+hidden_dim = 128
+hidden_dim1 = 512
+hidden_dim2 = 128
+Epoch [1/10], Loss: 2.5179
+Epoch [2/10], Loss: 2.4484
+Epoch [3/10], Loss: 2.3991
+Epoch [4/10], Loss: 2.3626
+Epoch [5/10], Loss: 2.3321
+Epoch [6/10], Loss: 2.2832
+Epoch [7/10], Loss: 2.1376
+Epoch [8/10], Loss: 1.7314
+Epoch [9/10], Loss: 1.2848
+Epoch [10/10], Loss: 0.9495
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+3层中间层
+hidden_dim = 128
+hidden_dim1 = 512
+hidden_dim2 =512
+Epoch [1/10], Loss: 2.5150
+Epoch [2/10], Loss: 2.4315
+Epoch [3/10], Loss: 2.3796
+Epoch [4/10], Loss: 2.3456
+Epoch [5/10], Loss: 2.3026
+Epoch [6/10], Loss: 2.1653
+Epoch [7/10], Loss: 1.8348
+Epoch [8/10], Loss: 1.4896
+Epoch [9/10], Loss: 1.1547
+Epoch [10/10], Loss: 0.8755
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+3层中间层
+hidden_dim = 128
+hidden_dim1 = 10240
+hidden_dim2 = 512
+Epoch [1/10], Loss: 2.4565
+Epoch [2/10], Loss: 2.3396
+Epoch [3/10], Loss: 2.1451
+Epoch [4/10], Loss: 1.5136
+Epoch [5/10], Loss: 0.9682
+Epoch [6/10], Loss: 0.6394
+Epoch [7/10], Loss: 0.4911
+Epoch [8/10], Loss: 0.4139
+Epoch [9/10], Loss: 0.3654
+Epoch [10/10], Loss: 0.3311
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+效果好，但是计算很慢
+
+
+3层中间层
+hidden_dim = 128
+hidden_dim1 = 512
+hidden_dim2 =64
+Epoch [1/10], Loss: 2.5123
+Epoch [2/10], Loss: 2.4526
+Epoch [3/10], Loss: 2.4095
+Epoch [4/10], Loss: 2.3779
+Epoch [5/10], Loss: 2.3537
+Epoch [6/10], Loss: 2.3275
+Epoch [7/10], Loss: 2.2720
+Epoch [8/10], Loss: 2.1002
+Epoch [9/10], Loss: 1.7946
+Epoch [10/10], Loss: 1.4319
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Weather-Query'
+
+
+四个中间层
+hidden_dim = 128
+hidden_dim1 = 128
+hidden_dim2 = 128
+hidden_dim3 = 128
+Epoch [1/10], Loss: 2.5138
+Epoch [2/10], Loss: 2.4459
+Epoch [3/10], Loss: 2.4046
+Epoch [4/10], Loss: 2.3794
+Epoch [5/10], Loss: 2.3664
+Epoch [6/10], Loss: 2.3595
+Epoch [7/10], Loss: 2.3562
+Epoch [8/10], Loss: 2.3509
+Epoch [9/10], Loss: 2.3445
+Epoch [10/10], Loss: 2.3311
+输入 '帮我导航到北京' 预测为: 'FilmTele-Play'
+输入 '查询明天北京的天气' 预测为: 'FilmTele-Play'
+
+
+四个中间层
+hidden_dim = 128
+hidden_dim1 = 256
+hidden_dim2 = 256
+hidden_dim3 = 256
+Epoch [1/10], Loss: 2.5182
+Epoch [2/10], Loss: 2.4427
+Epoch [3/10], Loss: 2.3975
+Epoch [4/10], Loss: 2.3740
+Epoch [5/10], Loss: 2.3645
+Epoch [6/10], Loss: 2.3588
+Epoch [7/10], Loss: 2.3556
+Epoch [8/10], Loss: 2.3531
+Epoch [9/10], Loss: 2.3499
+Epoch [10/10], Loss: 2.3457
+输入 '帮我导航到北京' 预测为: 'FilmTele-Play'
+输入 '查询明天北京的天气' 预测为: 'FilmTele-Play'
+
+
+四个中间层
+hidden_dim = 128
+hidden_dim1 = 64
+hidden_dim2 = 32
+hidden_dim3 = 16
+Epoch [1/10], Loss: 2.5325
+Epoch [2/10], Loss: 2.4622
+Epoch [3/10], Loss: 2.4211
+Epoch [4/10], Loss: 2.3935
+Epoch [5/10], Loss: 2.3762
+Epoch [6/10], Loss: 2.3653
+Epoch [7/10], Loss: 2.3572
+Epoch [8/10], Loss: 2.3492
+Epoch [9/10], Loss: 2.3372
+Epoch [10/10], Loss: 2.3068
+输入 '帮我导航到北京' 预测为: 'Travel-Query'
+输入 '查询明天北京的天气' 预测为: 'Travel-Query'
+

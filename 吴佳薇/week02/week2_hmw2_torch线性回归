@@ -1,0 +1,174 @@
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.optim as optim
+from matplotlib import font_manager as fm
+
+# 设置中文字体支持
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
+# 1. 生成sin函数数据
+np.random.seed(42)  # 设置随机种子以确保结果可重现
+X_numpy = np.linspace(-2 * np.pi, 2 * np.pi, 1000).reshape(-1, 1)  # 生成-2π到2π之间的1000个点
+y_numpy = np.sin(X_numpy) + 0.1 * np.random.randn(1000, 1)  # 生成带噪声的sin函数值
+
+# 转换为PyTorch张量
+X = torch.from_numpy(X_numpy).float()
+y = torch.from_numpy(y_numpy).float()
+
+print("Sin函数数据生成完成。")
+print(f"X范围: [{X.min().item():.2f}, {X.max().item():.2f}]")
+print("---" * 10)
+
+
+# 2. 定义多层神经网络模型
+class SinNet(nn.Module):
+    def __init__(self, hidden_layers=[64, 32, 16]):
+        super(SinNet, self).__init__()
+        layers = []
+
+        # 输入层到第一个隐藏层
+        layers.append(nn.Linear(1, hidden_layers[0]))
+        layers.append(nn.ReLU())
+
+        # 添加中间隐藏层
+        for i in range(len(hidden_layers) - 1):
+            layers.append(nn.Linear(hidden_layers[i], hidden_layers[i + 1]))
+            layers.append(nn.ReLU())
+
+        # 最后一个隐藏层到输出层
+        layers.append(nn.Linear(hidden_layers[-1], 1))
+
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+# 3. 创建模型、损失函数和优化器
+# 尝试不同结构的网络
+models = {
+    "Shallow(64)": SinNet([64]),
+    "Medium(64-32)": SinNet([64, 32]),
+    "Deep(64-32-16)": SinNet([64, 32, 16]),
+    "Wide(128-64)": SinNet([128, 64]),
+}
+
+criterion = nn.MSELoss()
+learning_rate = 0.01
+num_epochs = 2000
+
+# 存储每个模型的训练损失和预测结果
+results = {}
+
+# 4. 训练所有模型
+for model_name, model in models.items():
+    print(f"\nTraining model: {model_name}")
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    # 记录训练过程中的损失
+    losses = []
+
+    for epoch in range(num_epochs):
+        # 前向传播
+        y_pred = model(X)
+
+        # 计算损失
+        loss = criterion(y_pred, y)
+
+        # 反向传播和优化
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # 记录损失
+        losses.append(loss.item())
+
+        # 每500个epoch打印一次损失
+        if (epoch + 1) % 500 == 0:
+            print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.6f}')
+
+    # 存储结果
+    results[model_name] = {
+        'model': model,
+        'losses': losses,
+        'final_pred': model(X).detach().numpy()
+    }
+
+# 5. 绘制训练损失曲线
+plt.figure(figsize=(12, 6))
+for model_name, result in results.items():
+    plt.plot(result['losses'], label=model_name)
+
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training Loss of Different Network Structures')
+plt.legend()
+plt.grid(True)
+plt.yscale('log')  # 使用对数刻度以便更好地观察损失变化
+plt.savefig('sin_fitting_loss.png')
+plt.show()
+
+# 6. 绘制拟合结果对比
+plt.figure(figsize=(16, 12))
+
+# 绘制原始数据
+plt.subplot(3, 2, 1)
+plt.scatter(X_numpy, y_numpy, s=1, alpha=0.5, label='Noisy sin(x)')
+plt.plot(X_numpy, np.sin(X_numpy), 'k-', linewidth=2, label='True sin(x)')
+plt.title('Original Data and True Function')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+
+# 绘制每个模型的拟合结果
+for i, (model_name, result) in enumerate(results.items()):
+    plt.subplot(3, 2, i + 2)
+    plt.scatter(X_numpy, y_numpy, s=1, alpha=0.3, label='Noisy data')
+    plt.plot(X_numpy, np.sin(X_numpy), 'k-', linewidth=2, label='True sin(x)')
+    plt.plot(X_numpy, result['final_pred'], 'r-', linewidth=2, label=f'{model_name} Fit')
+    plt.title(f'{model_name} Fitting Result')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.legend()
+    plt.grid(True)
+
+plt.tight_layout()
+plt.savefig('sin_fitting_comparison.png')
+plt.show()
+
+# 7. 打印最终损失
+print("\nFinal Loss Comparison:")
+for model_name, result in results.items():
+    final_loss = result['losses'][-1]
+    print(f"{model_name}: {final_loss:.6f}")
+
+# 8. 使用最佳模型进行预测演示
+best_model_name = min(results, key=lambda k: results[k]['losses'][-1])
+best_model = results[best_model_name]['model']
+print(f"\nBest Model: {best_model_name}")
+
+# 生成测试数据
+test_X = np.linspace(-3 * np.pi, 3 * np.pi, 1000).reshape(-1, 1)
+test_X_tensor = torch.from_numpy(test_X).float()
+
+# 使用模型进行预测
+best_model.eval()
+with torch.no_grad():
+    test_pred = best_model(test_X_tensor).numpy()
+
+# 绘制外推结果
+plt.figure(figsize=(12, 6))
+plt.scatter(X_numpy, y_numpy, s=1, alpha=0.3, label='Training Data')
+plt.plot(test_X, np.sin(test_X), 'k-', linewidth=2, label='True sin(x)')
+plt.plot(test_X, test_pred, 'r-', linewidth=2, label=f'{best_model_name} Prediction')
+plt.title('Model Extrapolation Test (Training Range: [-2π, 2π])')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+plt.savefig('sin_extrapolation.png')
+plt.show()

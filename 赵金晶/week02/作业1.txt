@@ -1,0 +1,47 @@
+神经网络层数为1层（128）
+Epoch [1/10], Loss: 2.4034
+Epoch [2/10], Loss: 2.1794
+Epoch [3/10], Loss: 1.8505
+Epoch [4/10], Loss: 1.4787
+Epoch [5/10], Loss: 1.1710
+Epoch [6/10], Loss: 0.9551
+Epoch [7/10], Loss: 0.8078
+Epoch [8/10], Loss: 0.7089
+Epoch [9/10], Loss: 0.6363
+Epoch [10/10], Loss: 0.5842
+
+神经网络层数为2层（128,128）
+Epoch [1/10], Loss: 2.4424
+Epoch [2/10], Loss: 2.3779
+Epoch [3/10], Loss: 2.3072
+Epoch [4/10], Loss: 2.1674
+Epoch [5/10], Loss: 1.8696
+Epoch [6/10], Loss: 1.4919
+Epoch [7/10], Loss: 1.1459
+Epoch [8/10], Loss: 0.8900
+Epoch [9/10], Loss: 0.7131
+Epoch [10/10], Loss: 0.6018
+
+神经网络层数为2层（256,128）
+Epoch [1/10], Loss: 2.4535
+Epoch [2/10], Loss: 2.3954
+Epoch [3/10], Loss: 2.3344
+Epoch [4/10], Loss: 2.2219
+Epoch [5/10], Loss: 1.9881
+Epoch [6/10], Loss: 1.6450
+Epoch [7/10], Loss: 1.2917
+Epoch [8/10], Loss: 0.9953
+Epoch [9/10], Loss: 0.7890
+Epoch [10/10], Loss: 0.6568
+
+神经网络层数为2层（256,256）
+Epoch [1/10], Loss: 2.4415
+Epoch [2/10], Loss: 2.3816
+Epoch [3/10], Loss: 2.3182
+Epoch [4/10], Loss: 2.2051
+Epoch [5/10], Loss: 1.9591
+Epoch [6/10], Loss: 1.5886
+Epoch [7/10], Loss: 1.2369
+Epoch [8/10], Loss: 0.9516
+Epoch [9/10], Loss: 0.7539
+Epoch [10/10], Loss: 0.6307
