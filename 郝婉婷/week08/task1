@@ -1,0 +1,361 @@
+
+# Coze工作流
+workflow_config = {
+    "name": "joint_intent_domain_entity_recognition",
+    "description": "联合意图识别、领域识别和实体识别",
+    "steps": [
+        {
+            "name": "text_preprocessing",
+            "type": "preprocess",
+            "actions": [
+                "文本清洗",
+                "分词处理", 
+                "停用词过滤"
+            ]
+        },
+        {
+            "name": "intent_recognition",
+            "type": "classification",
+            "model": "claude-3-sonnet",
+            "prompt": "intent_classification_prompt"
+        },
+        {
+            "name": "domain_recognition", 
+            "type": "classification",
+            "model": "claude-3-sonnet",
+            "prompt": "domain_classification_prompt"
+        },
+        {
+            "name": "entity_extraction",
+            "type": "extraction",
+            "model": "claude-3-sonnet", 
+            "prompt": "entity_extraction_prompt"
+        },
+        {
+            "name": "result_integration",
+            "type": "integration",
+            "actions": [
+                "结果融合",
+                "置信度计算",
+                "输出格式化"
+            ]
+        }
+    ]
+}
+
+
+intent_classification_prompt = """
+你是一个专业的意图分类器。请分析用户的输入文本，识别其核心意图。
+
+可选的意图类别：
+1. query_search - 查询搜索
+2. command_execution - 命令执行  
+3. information_request - 信息请求
+4. problem_solving - 问题解决
+5. comparison_analysis - 对比分析
+6. recommendation - 推荐请求
+7. booking_reservation - 预订预约
+8. complaint_feedback - 投诉反馈
+9. confirmation - 确认核实
+10. cancellation - 取消操作
+
+请按照以下JSON格式输出：
+{
+    "intent": "识别的意图类别",
+    "confidence": 0.95,
+    "reasoning": "分类理由说明"
+}
+
+用户输入：{{user_input}}
+"""
+
+# 示例
+example_input = "我想预订明天去北京的机票"
+expected_output = {
+    "intent": "booking_reservation",
+    "confidence": 0.92,
+    "reasoning": "用户明确表达了预订需求，涉及时间(明天)和目的地(北京)"
+}
+
+#领域识别提示词设计
+domain_classification_prompt = """
+你是一个专业的领域分类器。请分析用户输入，确定其所属的专业领域。
+
+可选的领域类别：
+1. travel - 旅行交通
+2. finance - 金融理财  
+3. healthcare - 医疗健康
+4. education - 教育培训
+5. technology - 科学技术
+6. entertainment - 娱乐休闲
+7. ecommerce - 电商购物
+8. food - 餐饮美食
+9. real_estate - 房地产
+10. automotive - 汽车交通
+11. weather - 天气气象
+12. general - 通用领域
+
+请按照以下JSON格式输出：
+{
+    "domain": "识别的领域类别", 
+    "confidence": 0.90,
+    "sub_domain": "相关子领域",
+    "reasoning": "分类理由说明"
+}
+
+用户输入：{{user_input}}
+当前识别意图：{{detected_intent}}
+"""
+
+# 示例用法  
+example_input = "帮我比较一下iPhone和华为手机的优缺点"
+expected_output = {
+    "domain": "technology",
+    "confidence": 0.88,
+    "sub_domain": "电子产品比较",
+    "reasoning": "用户询问手机品牌对比，属于科技产品领域"
+}
+
+#实体识别提示词设计
+entity_extraction_prompt = """
+你是一个专业的实体提取器。请从用户输入中提取所有相关实体。
+
+实体类型定义：
+- person: 人物名称
+- location: 地点位置
+- time: 时间日期
+- organization: 组织机构
+- product: 产品商品
+- number: 数字数量
+- money: 金额货币
+- event: 事件活动
+- other: 其他实体
+
+请按照以下JSON格式输出：
+{
+    "entities": [
+        {
+            "text": "实体文本",
+            "type": "实体类型", 
+            "start_pos": 起始位置,
+            "end_pos": 结束位置,
+            "normalized_value": "标准化值"
+        }
+    ],
+    "relationships": "实体间关系描述"
+}
+
+用户输入：{{user_input}}
+当前识别意图：{{detected_intent}}
+当前识别领域：{{detected_domain}}
+"""
+
+# 示例用法
+example_input = "我想预订明天下午3点从上海到北京的机票，预算2000元以内"
+expected_output = {
+    "entities": [
+        {
+            "text": "明天下午3点",
+            "type": "time",
+            "start_pos": 5,
+            "end_pos": 11, 
+            "normalized_value": "2024-01-XX 15:00:00"
+        },
+        {
+            "text": "上海",
+            "type": "location", 
+            "start_pos": 13,
+            "end_pos": 15,
+            "normalized_value": "上海市"
+        },
+        {
+            "text": "北京", 
+            "type": "location",
+            "start_pos": 18,
+            "end_pos": 20,
+            "normalized_value": "北京市"
+        },
+        {
+            "text": "2000元",
+            "type": "money",
+            "start_pos": 27, 
+            "end_pos": 32,
+            "normalized_value": "2000"
+        }
+    ],
+    "relationships": "从上海出发到北京，时间明天下午3点，预算限制2000元"
+}
+
+#Coze完整工作流实现
+#主工作流配置
+# joint_recognition_workflow.coze
+name: JointIntentDomainEntityRecognition
+version: 1.0
+description: 联合意图识别、领域识别和实体识别工作流
+
+inputs:
+  - name: user_input
+    type: string
+    required: true
+    description: 用户输入文本
+
+steps:
+  - name: preprocess_text
+    type: code
+    code: |
+      import re
+      
+      def preprocess_text(text):
+          # 文本清洗
+          text = re.sub(r'[^\w\s\u4e00-\u9fff]', '', text)
+          text = text.strip()
+          return {
+              'cleaned_text': text,
+              'word_count': len(text),
+              'has_special_chars': bool(re.search(r'[!@#$%^&*()]', text))
+          }
+      
+      return preprocess_text(inputs.user_input)
+
+  - name: detect_intent
+    type: llm
+    model: claude-3-sonnet
+    prompt: |
+      {{intent_classification_prompt}}
+      用户输入：{{preprocess_text.cleaned_text}}
+    output_schema:
+      type: object
+      properties:
+        intent:
+          type: string
+        confidence:
+          type: number
+        reasoning:
+          type: string
+
+  - name: detect_domain  
+    type: llm
+    model: claude-3-sonnet
+    prompt: |
+      {{domain_classification_prompt}}
+      用户输入：{{preprocess_text.cleaned_text}}
+      当前识别意图：{{detect_intent.intent}}
+    output_schema:
+      type: object  
+      properties:
+        domain:
+          type: string
+        confidence:
+          type: number
+        sub_domain:
+          type: string
+        reasoning:
+          type: string
+
+  - name: extract_entities
+    type: llm
+    model: claude-3-sonnet  
+    prompt: |
+      {{entity_extraction_prompt}}
+      用户输入：{{preprocess_text.cleaned_text}}
+      当前识别意图：{{detect_intent.intent}}
+      当前识别领域：{{detect_domain.domain}}
+    output_schema:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              type:
+                type: string
+              start_pos:
+                type: number
+              end_pos:
+                type: number
+              normalized_value:
+                type: string
+        relationships:
+          type: string
+
+  - name: integrate_results
+    type: code
+    code: |
+      def calculate_overall_confidence(intent_conf, domain_conf, entities_count):
+          base_score = (intent_conf + domain_conf) / 2
+          entity_bonus = min(entities_count * 0.05, 0.1)  # 实体数量奖励
+          return min(base_score + entity_bonus, 1.0)
+      
+      overall_confidence = calculate_overall_confidence(
+          inputs.detect_intent.confidence,
+          inputs.detect_domain.confidence, 
+          len(inputs.extract_entities.entities)
+      )
+      
+      return {
+          'final_result': {
+              'text': inputs.user_input,
+              'intent': {
+                  'category': inputs.detect_intent.intent,
+                  'confidence': inputs.detect_intent.confidence,
+                  'reasoning': inputs.detect_intent.reasoning
+              },
+              'domain': {
+                  'category': inputs.detect_domain.domain,
+                  'confidence': inputs.detect_domain.confidence,
+                  'sub_domain': inputs.detect_domain.sub_domain,
+                  'reasoning': inputs.detect_domain.reasoning
+              },
+              'entities': inputs.extract_entities.entities,
+              'relationships': inputs.extract_entities.relationships,
+              'overall_confidence': overall_confidence,
+              'processing_time': '实时处理'
+          },
+          'success': overall_confidence > 0.7
+      }
+
+outputs:
+  - name: recognition_result
+    value: integrate_results.final_result
+  - name: processing_status
+    value: integrate_results.success
+
+#测试用例和验证
+# 测试用例配置
+test_cases = [
+    {
+        "input": "我想预订明天去北京的机票，经济舱",
+        "expected": {
+            "intent": "booking_reservation", 
+            "domain": "travel",
+            "entities": ["明天", "北京", "经济舱"]
+        }
+    },
+    {
+        "input": "比较一下招商银行和工商银行的理财产品",
+        "expected": {
+            "intent": "comparison_analysis",
+            "domain": "finance", 
+            "entities": ["招商银行", "工商银行", "理财产品"]
+        }
+    },
+    {
+        "input": "帮我找一下附近的川菜馆，人均200元左右",
+        "expected": {
+            "intent": "recommendation",
+            "domain": "food",
+            "entities": ["川菜馆", "200元"] 
+        }
+    }
+]
+
+# 性能评估
+performance_metrics = {
+    "accuracy_threshold": 0.85,
+    "response_time": "< 2秒",
+    "concurrent_users": 1000,
+    "availability": "99.9%"
+}
