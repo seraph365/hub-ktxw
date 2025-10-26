@@ -1,0 +1,651 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from enum import Enum
+
+class IntentType(str, Enum):
+    QUERY_SEARCH = "query_search"
+    COMMAND_EXECUTION = "command_execution"
+    INFORMATION_REQUEST = "information_request"
+    PROBLEM_SOLVING = "problem_solving"
+    COMPARISON_ANALYSIS = "comparison_analysis"
+    RECOMMENDATION = "recommendation"
+    BOOKING_RESERVATION = "booking_reservation"
+    COMPLAINT_FEEDBACK = "complaint_feedback"
+    CONFIRMATION = "confirmation"
+    CANCELLATION = "cancellation"
+
+class DomainType(str, Enum):
+    TRAVEL = "travel"
+    FINANCE = "finance"
+    HEALTHCARE = "healthcare"
+    EDUCATION = "education"
+    TECHNOLOGY = "technology"
+    ENTERTAINMENT = "entertainment"
+    ECOMMERCE = "ecommerce"
+    FOOD = "food"
+    REAL_ESTATE = "real_estate"
+    AUTOMOTIVE = "automotive"
+    WEATHER = "weather"
+    GENERAL = "general"
+
+class EntityType(str, Enum):
+    PERSON = "person"
+    LOCATION = "location"
+    TIME = "time"
+    ORGANIZATION = "organization"
+    PRODUCT = "product"
+    NUMBER = "number"
+    MONEY = "money"
+    EVENT = "event"
+    OTHER = "other"
+
+class Entity(BaseModel):
+    text: str = Field(..., description="实体文本")
+    type: EntityType = Field(..., description="实体类型")
+    start_pos: int = Field(..., description="起始位置")
+    end_pos: int = Field(..., description="结束位置")
+    normalized_value: Optional[str] = Field(None, description="标准化值")
+
+class IntentRecognition(BaseModel):
+    category: IntentType = Field(..., description="意图类别")
+    confidence: float = Field(..., ge=0, le=1, description="置信度")
+    reasoning: str = Field(..., description="分类理由")
+
+class DomainRecognition(BaseModel):
+    category: DomainType = Field(..., description="领域类别")
+    confidence: float = Field(..., ge=0, le=1, description="置信度")
+    sub_domain: Optional[str] = Field(None, description="子领域")
+    reasoning: str = Field(..., description="分类理由")
+
+class RecognitionRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1000, description="输入文本")
+    enable_cache: bool = Field(True, description="是否启用缓存")
+    detailed_analysis: bool = Field(False, description="是否返回详细分析")
+
+class RecognitionResponse(BaseModel):
+    text: str = Field(..., description="原始文本")
+    intent: IntentRecognition = Field(..., description="意图识别结果")
+    domain: DomainRecognition = Field(..., description="领域识别结果")
+    entities: List[Entity] = Field(default_factory=list, description="实体列表")
+    relationships: Optional[str] = Field(None, description="实体关系描述")
+    overall_confidence: float = Field(..., ge=0, le=1, description="总体置信度")
+    processing_time: float = Field(..., description="处理时间(秒)")
+    success: bool = Field(..., description="处理是否成功")
+
+class BatchRecognitionRequest(BaseModel):
+    texts: List[str] = Field(..., min_items=1, max_items=100, description="批量文本")
+    enable_cache: bool = Field(True, description="是否启用缓存")
+
+class BatchRecognitionResponse(BaseModel):
+    results: List[RecognitionResponse] = Field(..., description="识别结果列表")
+    total_processed: int = Field(..., description="处理总数")
+    success_count: int = Field(..., description="成功数量")
+    average_confidence: float = Field(..., description="平均置信度")
+
+
+#提示词管理
+from typing import Dict, Any
+
+class PromptManager:
+    def __init__(self):
+        self.prompts = self._initialize_prompts()
+    
+    def _initialize_prompts(self) -> Dict[str, str]:
+        return {
+            "intent_classification": """
+你是一个专业的意图分类器。请分析用户的输入文本，识别其核心意图。
+
+可选的意图类别：
+1. query_search - 查询搜索
+2. command_execution - 命令执行  
+3. information_request - 信息请求
+4. problem_solving - 问题解决
+5. comparison_analysis - 对比分析
+6. recommendation - 推荐请求
+7. booking_reservation - 预订预约
+8. complaint_feedback - 投诉反馈
+9. confirmation - 确认核实
+10. cancellation - 取消操作
+
+请严格按照JSON格式输出，只包含intent、confidence、reasoning三个字段：
+{{
+    "intent": "识别的意图类别",
+    "confidence": 0.95,
+    "reasoning": "分类理由说明"
+}}
+
+用户输入：{user_input}
+""",
+
+            "domain_classification": """
+你是一个专业的领域分类器。请分析用户输入，确定其所属的专业领域。
+
+可选的领域类别：
+1. travel - 旅行交通
+2. finance - 金融理财  
+3. healthcare - 医疗健康
+4. education - 教育培训
+5. technology - 科学技术
+6. entertainment - 娱乐休闲
+7. ecommerce - 电商购物
+8. food - 餐饮美食
+9. real_estate - 房地产
+10. automotive - 汽车交通
+11. weather - 天气气象
+12. general - 通用领域
+
+请严格按照JSON格式输出，只包含domain、confidence、sub_domain、reasoning四个字段：
+{{
+    "domain": "识别的领域类别", 
+    "confidence": 0.90,
+    "sub_domain": "相关子领域",
+    "reasoning": "分类理由说明"
+}}
+
+用户输入：{user_input}
+当前识别意图：{detected_intent}
+""",
+
+            "entity_extraction": """
+你是一个专业的实体提取器。请从用户输入中提取所有相关实体。
+
+实体类型定义：
+- person: 人物名称
+- location: 地点位置
+- time: 时间日期
+- organization: 组织机构
+- product: 产品商品
+- number: 数字数量
+- money: 金额货币
+- event: 事件活动
+- other: 其他实体
+
+请严格按照JSON格式输出：
+{{
+    "entities": [
+        {{
+            "text": "实体文本",
+            "type": "实体类型", 
+            "start_pos": 起始位置,
+            "end_pos": 结束位置,
+            "normalized_value": "标准化值"
+        }}
+    ],
+    "relationships": "实体间关系描述"
+}}
+
+用户输入：{user_input}
+当前识别意图：{detected_intent}
+当前识别领域：{detected_domain}
+"""
+        }
+    
+    def get_intent_prompt(self, user_input: str) -> str:
+        return self.prompts["intent_classification"].format(user_input=user_input)
+    
+    def get_domain_prompt(self, user_input: str, detected_intent: str) -> str:
+        return self.prompts["domain_classification"].format(
+            user_input=user_input, 
+            detected_intent=detected_intent
+        )
+    
+    def get_entity_prompt(self, user_input: str, detected_intent: str, detected_domain: str) -> str:
+        return self.prompts["entity_extraction"].format(
+            user_input=user_input,
+            detected_intent=detected_intent,
+            detected_domain=detected_domain
+        )
+
+
+#工具函数
+import re
+import json
+import time
+import hashlib
+from typing import Dict, Any, List, Optional
+from functools import lru_cache
+from app.models import Entity, IntentType, DomainType, EntityType
+
+class TextProcessor:
+    @staticmethod
+    def preprocess_text(text: str) -> Dict[str, Any]:
+        """文本预处理"""
+        # 清洗文本
+        cleaned_text = re.sub(r'[^\w\s\u4e00-\u9fff，。！？；：""''（）《》]', '', text)
+        cleaned_text = cleaned_text.strip()
+        
+        # 基础分析
+        word_count = len(cleaned_text)
+        char_count = len(text)
+        has_special_chars = bool(re.search(r'[!@#$%^&*()]', text))
+        
+        return {
+            'cleaned_text': cleaned_text,
+            'original_text': text,
+            'word_count': word_count,
+            'char_count': char_count,
+            'has_special_chars': has_special_chars
+        }
+    
+    @staticmethod
+    def find_entity_positions(text: str, entity_text: str) -> tuple[int, int]:
+        """在文本中查找实体的位置"""
+        start_pos = text.find(entity_text)
+        if start_pos == -1:
+            return -1, -1
+        return start_pos, start_pos + len(entity_text)
+
+class CacheManager:
+    def __init__(self, max_size: int = 1000):
+        self.max_size = max_size
+    
+    def generate_key(self, text: str, operation: str) -> str:
+        """生成缓存键"""
+        content = f"{operation}:{text}"
+        return hashlib.md5(content.encode()).hexdigest()
+    
+    @lru_cache(maxsize=1000)
+    def get_cached_result(self, key: str):
+        """获取缓存结果"""
+        return None  # 实际使用时可以连接Redis等
+    
+    def set_cached_result(self, key: str, result: Any, ttl: int = 3600):
+        """设置缓存结果"""
+        pass  # 实际使用时可以连接Redis等
+
+class ConfidenceCalculator:
+    @staticmethod
+    def calculate_overall_confidence(intent_conf: float, domain_conf: float, entities_count: int) -> float:
+        """计算总体置信度"""
+        base_score = (intent_conf + domain_conf) / 2
+        entity_bonus = min(entities_count * 0.03, 0.15)  # 实体数量奖励
+        return min(base_score + entity_bonus, 1.0)
+    
+    @staticmethod
+    def adjust_confidence_by_text_length(confidence: float, text_length: int) -> float:
+        """根据文本长度调整置信度"""
+        if text_length < 5:
+            return confidence * 0.7  # 短文本置信度降低
+        elif text_length > 100:
+            return confidence * 0.9  # 长文本置信度稍降
+        return confidence
+
+class ResponseValidator:
+    @staticmethod
+    def validate_intent_response(response: Dict[str, Any]) -> bool:
+        """验证意图识别响应"""
+        required_fields = ['intent', 'confidence', 'reasoning']
+        return all(field in response for field in required_fields)
+    
+    @staticmethod
+    def validate_domain_response(response: Dict[str, Any]) -> bool:
+        """验证领域识别响应"""
+        required_fields = ['domain', 'confidence', 'reasoning']
+        return all(field in response for field in required_fields)
+    
+    @staticmethod
+    def validate_entity_response(response: Dict[str, Any]) -> bool:
+        """验证实体识别响应"""
+        if 'entities' not in response:
+            return False
+        
+        required_entity_fields = ['text', 'type', 'start_pos', 'end_pos']
+        for entity in response.get('entities', []):
+            if not all(field in entity for field in required_entity_fields):
+                return False
+        
+        return True
+
+#核心服务
+import json
+import time
+import asyncio
+from typing import Dict, Any, List, Optional
+from app.models import (
+    RecognitionRequest, RecognitionResponse, IntentRecognition, 
+    DomainRecognition, Entity, IntentType, DomainType, EntityType
+)
+from app.prompts import PromptManager
+from app.tools import TextProcessor, CacheManager, ConfidenceCalculator, ResponseValidator
+
+class LLMService:
+    """模拟LLM服务，实际使用时替换为真实的Coze API调用"""
+    
+    def __init__(self):
+        self.prompt_manager = PromptManager()
+        self.cache_manager = CacheManager()
+        self.text_processor = TextProcessor()
+        self.confidence_calculator = ConfidenceCalculator()
+        self.validator = ResponseValidator()
+    
+    async def call_llm(self, prompt: str, max_retries: int = 3) -> Dict[str, Any]:
+        """调用LLM服务"""
+        for attempt in range(max_retries):
+            try:
+                # 模拟LLM调用延迟
+                await asyncio.sleep(0.1)
+                
+                # 这里应该替换为真实的Coze API调用
+                # response = await self._call_coze_api(prompt)
+                
+                # 模拟响应 - 实际使用时删除这部分
+                response = self._mock_llm_response(prompt)
+                
+                # 解析JSON响应
+                if isinstance(response, str):
+                    result = json.loads(response)
+                else:
+                    result = response
+                
+                return result
+                
+            except (json.JSONDecodeError, KeyError) as e:
+                if attempt == max_retries - 1:
+                    raise Exception(f"LLM响应解析失败: {str(e)}")
+                await asyncio.sleep(0.5 * (attempt + 1))
+        
+        raise Exception("LLM调用失败")
+    
+    def _mock_llm_response(self, prompt: str) -> str:
+        """模拟LLM响应 - 仅用于演示，实际使用时删除"""
+        if "意图分类器" in prompt:
+            return json.dumps({
+                "intent": "booking_reservation",
+                "confidence": 0.92,
+                "reasoning": "用户明确表达了预订需求"
+            })
+        elif "领域分类器" in prompt:
+            return json.dumps({
+                "domain": "travel",
+                "confidence": 0.88,
+                "sub_domain": "机票预订",
+                "reasoning": "用户询问机票预订，属于旅行领域"
+            })
+        elif "实体提取器" in prompt:
+            return json.dumps({
+                "entities": [
+                    {
+                        "text": "明天",
+                        "type": "time",
+                        "start_pos": 5,
+                        "end_pos": 7,
+                        "normalized_value": "2024-01-XX"
+                    },
+                    {
+                        "text": "北京",
+                        "type": "location", 
+                        "start_pos": 10,
+                        "end_pos": 12,
+                        "normalized_value": "北京市"
+                    }
+                ],
+                "relationships": "从当前位置到北京的行程"
+            })
+        return "{}"
+    
+    async def recognize_intent(self, text: str) -> IntentRecognition:
+        """识别意图"""
+        prompt = self.prompt_manager.get_intent_prompt(text)
+        response = await self.call_llm(prompt)
+        
+        if not self.validator.validate_intent_response(response):
+            raise Exception("意图识别响应格式错误")
+        
+        return IntentRecognition(
+            category=IntentType(response['intent']),
+            confidence=response['confidence'],
+            reasoning=response['reasoning']
+        )
+    
+    async def recognize_domain(self, text: str, intent: IntentRecognition) -> DomainRecognition:
+        """识别领域"""
+        prompt = self.prompt_manager.get_domain_prompt(text, intent.category.value)
+        response = await self.call_llm(prompt)
+        
+        if not self.validator.validate_domain_response(response):
+            raise Exception("领域识别响应格式错误")
+        
+        return DomainRecognition(
+            category=DomainType(response['domain']),
+            confidence=response['confidence'],
+            sub_domain=response.get('sub_domain'),
+            reasoning=response['reasoning']
+        )
+    
+    async def extract_entities(self, text: str, intent: IntentRecognition, domain: DomainRecognition) -> tuple[List[Entity], str]:
+        """提取实体"""
+        prompt = self.prompt_manager.get_entity_prompt(
+            text, intent.category.value, domain.category.value
+        )
+        response = await self.call_llm(prompt)
+        
+        if not self.validator.validate_entity_response(response):
+            raise Exception("实体识别响应格式错误")
+        
+        entities = []
+        for entity_data in response['entities']:
+            # 验证并修正实体位置
+            start_pos, end_pos = self.text_processor.find_entity_positions(
+                text, entity_data['text']
+            )
+            if start_pos == -1:
+                continue
+                
+            entities.append(Entity(
+                text=entity_data['text'],
+                type=EntityType(entity_data['type']),
+                start_pos=start_pos,
+                end_pos=end_pos,
+                normalized_value=entity_data.get('normalized_value')
+            ))
+        
+        return entities, response.get('relationships', '')
+
+class RecognitionService:
+    """识别服务"""
+    
+    def __init__(self):
+        self.llm_service = LLMService()
+        self.text_processor = TextProcessor()
+        self.confidence_calculator = ConfidenceCalculator()
+    
+    async def process_single_text(self, request: RecognitionRequest) -> RecognitionResponse:
+        """处理单个文本"""
+        start_time = time.time()
+        
+        try:
+            # 文本预处理
+            processed_text = self.text_processor.preprocess_text(request.text)
+            
+            # 并行执行意图和领域识别
+            intent_task = self.llm_service.recognize_intent(processed_text['cleaned_text'])
+            intent_result = await intent_task
+            
+            domain_task = self.llm_service.recognize_domain(
+                processed_text['cleaned_text'], intent_result
+            )
+            domain_result = await domain_task
+            
+            # 实体提取
+            entities, relationships = await self.llm_service.extract_entities(
+                processed_text['cleaned_text'], intent_result, domain_result
+            )
+            
+            # 计算总体置信度
+            overall_confidence = self.confidence_calculator.calculate_overall_confidence(
+                intent_result.confidence,
+                domain_result.confidence,
+                len(entities)
+            )
+            
+            processing_time = time.time() - start_time
+            
+            return RecognitionResponse(
+                text=request.text,
+                intent=intent_result,
+                domain=domain_result,
+                entities=entities,
+                relationships=relationships,
+                overall_confidence=overall_confidence,
+                processing_time=processing_time,
+                success=True
+            )
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            # 返回错误响应
+            return RecognitionResponse(
+                text=request.text,
+                intent=IntentRecognition(
+                    category=IntentType.QUERY_SEARCH,
+                    confidence=0.0,
+                    reasoning=f"处理失败: {str(e)}"
+                ),
+                domain=DomainRecognition(
+                    category=DomainType.GENERAL,
+                    confidence=0.0,
+                    reasoning=f"处理失败: {str(e)}"
+                ),
+                entities=[],
+                relationships="",
+                overall_confidence=0.0,
+                processing_time=processing_time,
+                success=False
+            )
+    
+    async def process_batch_texts(self, request: BatchRecognitionRequest) -> BatchRecognitionResponse:
+        """批量处理文本"""
+        tasks = []
+        for text in request.texts:
+            single_request = RecognitionRequest(
+                text=text,
+                enable_cache=request.enable_cache
+            )
+            tasks.append(self.process_single_text(single_request))
+        
+        results = await asyncio.gather(*tasks)
+        
+        success_count = sum(1 for result in results if result.success)
+        total_confidence = sum(result.overall_confidence for result in results if result.success)
+        average_confidence = total_confidence / success_count if success_count > 0 else 0
+        
+        return BatchRecognitionResponse(
+            results=results,
+            total_processed=len(results),
+            success_count=success_count,
+            average_confidence=average_confidence
+        )
+
+#FastAPI主应用
+from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+import uvicorn
+import time
+
+from app.models import (
+    RecognitionRequest, RecognitionResponse, 
+    BatchRecognitionRequest, BatchRecognitionResponse
+)
+from app.services import RecognitionService
+from app.config import settings
+
+# 生命周期管理
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时初始化
+    app.state.recognition_service = RecognitionService()
+    yield
+    # 关闭时清理
+    app.state.recognition_service = None
+
+# 创建FastAPI应用
+app = FastAPI(
+    title="联合识别API",
+    description="意图识别 + 领域识别 + 实体识别系统",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 依赖注入
+def get_recognition_service() -> RecognitionService:
+    return app.state.recognition_service
+
+# 健康检查
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": "1.0.0"
+    }
+
+# 单文本识别
+@app.post("/recognize", response_model=RecognitionResponse)
+async def recognize_text(
+    request: RecognitionRequest,
+    service: RecognitionService = Depends(get_recognition_service)
+):
+    """
+    单文本意图识别 + 领域识别 + 实体识别
+    """
+    try:
+        result = await service.process_single_text(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
+
+# 批量识别
+@app.post("/recognize/batch", response_model=BatchRecognitionResponse)
+async def recognize_batch_texts(
+    request: BatchRecognitionRequest,
+    service: RecognitionService = Depends(get_recognition_service)
+):
+    """
+    批量文本识别
+    """
+    try:
+        result = await service.process_batch_texts(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"批量处理失败: {str(e)}")
+
+# 获取支持的意图和领域类型
+@app.get("/supported-types")
+async def get_supported_types():
+    """
+    获取支持的意图类型和领域类型
+    """
+    from app.models import IntentType, DomainType, EntityType
+    
+    return {
+        "intent_types": [item.value for item in IntentType],
+        "domain_types": [item.value for item in DomainType],
+        "entity_types": [item.value for item in EntityType]
+    }
+
+# 异常处理
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"服务器内部错误: {str(exc)}"}
+    )
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
