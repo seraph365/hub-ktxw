@@ -1,0 +1,119 @@
+{
+    "submit_type": "dsl",
+    "workflow_dsl": {
+        "nodes": [
+            {
+                "id": "start",
+                "type": "start",
+                "data": {
+                    "title": "输入问题"
+                }
+            },
+            {
+                "id": "knowledge_retrieval",
+                "type": "knowledge_retrieval",
+                "data": {
+                    "title": "知识库检索",
+                    "query": "{{#start.query#}}"
+                }
+            },
+            {
+                "id": "llm_processing",
+                "type": "llm",
+                "data": {
+                    "title": "LLM处理",
+                    "prompt": "基于以下上下文：\n{{#knowledge_retrieval.context#}}\n\n回答问题：{{#start.query#}}"
+                }
+            },
+            {
+                "id": "output",
+                "type": "end",
+                "data": {
+                    "title": "输出答案"
+                }
+            }
+        ],
+        "edges": [
+            {
+                "source": "start",
+                "target": "knowledge_retrieval"
+            },
+            {
+                "source": "knowledge_retrieval",
+                "target": "llm_processing"
+            },
+            {
+                "source": "llm_processing",
+                "target": "output"
+            }
+        ]
+    },
+    "chat_dsl": {
+        "nodes": [
+            {
+                "id": "user_input",
+                "type": "user_input",
+                "data": {
+                    "title": "用户输入"
+                }
+            },
+            {
+                "id": "intent_classification",
+                "type": "intent_classification",
+                "data": {
+                    "title": "意图识别",
+                    "query": "{{#user_input.query#}}"
+                }
+            },
+            {
+                "id": "knowledge_search",
+                "type": "knowledge_search",
+                "data": {
+                    "title": "知识搜索",
+                    "query": "{{#user_input.query#}}",
+                    "enabled": "{{#intent_classification.requires_knowledge#}}"
+                }
+            },
+            {
+                "id": "llm_generation",
+                "type": "llm_generation",
+                "data": {
+                    "title": "LLM生成",
+                    "prompt": "{{#knowledge_search.context#}}用户问题：{{#user_input.query#}}",
+                    "fallback_prompt": "直接回答：{{#user_input.query#}}"
+                }
+            },
+            {
+                "id": "response",
+                "type": "response",
+                "data": {
+                    "title": "返回响应"
+                }
+            }
+        ],
+        "edges": [
+            {
+                "source": "user_input",
+                "target": "intent_classification"
+            },
+            {
+                "source": "intent_classification",
+                "target": "knowledge_search",
+                "condition": "requires_knowledge"
+            },
+            {
+                "source": "knowledge_search",
+                "target": "llm_generation"
+            },
+            {
+                "source": "intent_classification",
+                "target": "llm_generation",
+                "condition": "direct_answer"
+            },
+            {
+                "source": "llm_generation",
+                "target": "response"
+            }
+        ]
+    }
+}
