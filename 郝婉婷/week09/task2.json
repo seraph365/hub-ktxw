@@ -1,0 +1,81 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "data": {
+        "title": "输入天气信息",
+        "variables": [
+          {
+            "variable": "weather_condition",
+            "type": "text",
+            "required": true,
+            "options": [],
+            "default_value": "",
+            "placeholder": "e.g., 晴, 雨, 雪, 多云"
+          },
+          {
+            "variable": "temperature",
+            "type": "number",
+            "required": true,
+            "options": [],
+            "default_value": "",
+            "placeholder": "e.g., 25"
+          },
+          {
+            "variable": "humidity",
+            "type": "number",
+            "required": true,
+            "options": [],
+            "default_value": "",
+            "placeholder": "e.g., 60"
+          },
+          {
+            "variable": "user_profile",
+            "type": "text",
+            "required": false,
+            "options": [],
+            "default_value": "",
+            "placeholder": "e.g., 怕冷, 计划进行户外跑步"
+          }
+        ]
+      }
+    },
+    {
+      "id": "llm_reasoning",
+      "type": "llm",
+      "data": {
+        "title": "分析与生成穿衣建议",
+        "model": "gpt-3.5-turbo", // 可根据实际情况更换为 deepseek-chat 等模型
+        "prompt_template": "你是一名专业的穿衣顾问。请根据用户提供的天气信息，并结合给定的**穿衣气象指数**与**人体舒适度指数**参考标准，进行推理并生成贴心、个性化的穿衣建议。\n\n## 用户输入信息：\n- **天气状况**: {{start.weather_condition}}\n- **温度**: {{start.temperature}}°C\n- **湿度**: {{start.humidity}}%\n- **用户补充信息**: {{start.user_profile}}\n\n## 专业参考标准（重要）：\n**穿衣气象指数分级（共8级）**[citation:9]：\n- 1级（炎热，>28°C）：轻棉织物短衣、短裙、薄短裤。\n- 3级（舒适，21.0-23.9°C）：单层棉麻面料短套装、T恤衫、薄牛仔衫裤。\n- 5级（温凉，15.0-17.9°C）：风衣、大衣、毛衣、毛套装。\n- 7级（冷，6.0-10.9°C）：棉衣、冬大衣、皮夹克、厚呢外套、手套。\n- 8级（寒冷，<6°C）：棉衣、冬大衣、皮夹克、厚呢外套、呢帽、手套、羽绒服、皮袄。\n\n**人体舒适度指数计算公式**[citation:9]：\n`ssd = (1.818t + 18.18)(0.88 + 0.002f) + (t-32)/(45-t) - 3.2v + 18.2` \n（其中t为平均气温(℃)，f为相对湿度(%), v为风速(m/s)。鉴于风速未知，本次可暂不计算，但请在心智中考虑湿度对体感的影响。）\n\n## 任务要求：\n1.  **判断与推理**：首先，判断当前天气数据最符合上述哪个“穿衣气象指数”等级，并说明理由。\n2.  **给出建议**：基于判断的等级、湿度和用户个人情况，提供具体的穿衣建议（包括衣物类型、材质和层次穿搭法）。\n3.  **健康提示**：给出1-2条相关的健康防护提示（如防暑、保暖、防潮等）。\n请确保建议贴心、具体且易于执行。",
+        "temperature": 0.3,
+        "top_p": 0.8,
+        "max_tokens": 1500
+      }
+    },
+    {
+      "id": "output",
+      "type": "end",
+      "data": {
+        "title": "获取穿衣建议",
+        "outputs": [
+          {
+            "variable": "dressing_advice",
+            "type": "text",
+            "value": "{{llm_reasoning.text}}"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "start",
+      "target": "llm_reasoning"
+    },
+    {
+      "source": "llm_reasoning",
+      "target": "output"
+    }
+  ]
+}
