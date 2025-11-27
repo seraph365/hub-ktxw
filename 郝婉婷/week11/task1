@@ -1,0 +1,158 @@
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+import uuid
+import base64
+from datetime import datetime
+
+app = FastAPI()
+
+# 数据模型
+class DocumentUploadRequest(BaseModel):
+    document_id: Optional[str] = None
+    file_name: str
+    file_type: str
+    metadata: Optional[Dict[str, Any]] = {}
+    chunk_config: Optional[Dict[str, Any]] = {
+        "chunk_size": 1024,
+        "chunk_overlap": 200,
+        "modality_specific": True
+    }
+
+class DocumentUploadResponse(BaseModel):
+    status: str
+    document_id: str
+    chunk_count: int
+    processing_time: float
+
+class DocumentListResponse(BaseModel):
+    documents: List[Dict[str, Any]]
+    total_count: int
+    page: int
+    page_size: int
+
+class DeleteResponse(BaseModel):
+    status: str
+    deleted_chunks: int
+
+# 存储模拟（实际使用数据库）
+documents_store = {}
+chunks_store = {}
+
+@app.post("/api/v1/documents/upload", response_model=DocumentUploadResponse)
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    document_id: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    file_name: str = Form(...),
+    file_type: str = Form(...),
+    metadata: str = Form("{}"),
+    chunk_config: str = Form("{}")
+):
+    """上传多模态文档接口"""
+    try:
+        # 生成文档ID
+        doc_id = document_id or str(uuid.uuid4())
+        
+        # 读取文件内容
+        file_content = await file.read()
+        file_b64 = base64.b64encode(file_content).decode('utf-8')
+        
+        # 存储文档信息
+        documents_store[doc_id] = {
+            "document_id": doc_id,
+            "file_name": file_name,
+            "file_type": file_type,
+            "upload_time": datetime.now(),
+            "file_size": len(file_content),
+            "metadata": eval(metadata) if metadata else {}
+        }
+        
+        # 后台处理文档分块和嵌入
+        background_tasks.add_task(
+            process_document_chunking,
+            doc_id, file_b64, file_type, eval(chunk_config) if chunk_config else {}
+        )
+        
+        return DocumentUploadResponse(
+            status="success",
+            document_id=doc_id,
+            chunk_count=0,  # 实际处理后会更新
+            processing_time=0.0
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文档上传失败: {str(e)}")
+
+@app.get("/api/v1/documents", response_model=DocumentListResponse)
+async def list_documents(
+    page: int = 1,
+    page_size: int = 20,
+    file_type: Optional[str] = None
+):
+    """查询文档列表接口"""
+    try:
+        # 过滤文档
+        filtered_docs = []
+        for doc in documents_store.values():
+            if file_type and doc["file_type"] != file_type:
+                continue
+            filtered_docs.append(doc)
+        
+        # 分页
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_docs = filtered_docs[start_idx:end_idx]
+        
+        # 添加分块计数
+        for doc in paginated_docs:
+            doc["chunk_count"] = count_chunks_for_document(doc["document_id"])
+        
+        return DocumentListResponse(
+            documents=paginated_docs,
+            total_count=len(filtered_docs),
+            page=page,
+            page_size=page_size
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询文档列表失败: {str(e)}")
+
+@app.delete("/api/v1/documents/{document_id}", response_model=DeleteResponse)
+async def delete_document(document_id: str):
+    """删除文档接口"""
+    try:
+        if document_id not in documents_store:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        
+        # 删除文档和相关分块
+        deleted_count = delete_chunks_for_document(document_id)
+        del documents_store[document_id]
+        
+        return DeleteResponse(
+            status="success",
+            deleted_chunks=deleted_count
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")
+
+# 辅助函数
+async def process_document_chunking(doc_id: str, file_b64: str, file_type: str, chunk_config: dict):
+    """后台处理文档分块"""
+    # 实际实现中这里会调用分块和嵌入服务
+    pass
+
+def count_chunks_for_document(doc_id: str) -> int:
+    """计算文档的分块数量"""
+    return len([chunk for chunk in chunks_store.values() if chunk.get("document_id") == doc_id])
+
+def delete_chunks_for_document(doc_id: str) -> int:
+    """删除文档的所有分块"""
+    chunks_to_delete = [chunk_id for chunk_id, chunk in chunks_store.items() 
+                       if chunk.get("document_id") == doc_id]
+    for chunk_id in chunks_to_delete:
+        del chunks_store[chunk_id]
+    return len(chunks_to_delete)
