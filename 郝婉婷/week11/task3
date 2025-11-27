@@ -1,0 +1,203 @@
+from pymilvus import FieldSchema, CollectionSchema, DataType
+
+# 定义字段
+fields = [
+    # 主键和标识
+    FieldSchema(name="chunk_id", dtype=DataType.VARCHAR, is_primary=True, max_length=64),
+    FieldSchema(name="document_id", dtype=DataType.VARCHAR, max_length=64),
+    
+    # 内容类型和原始内容
+    FieldSchema(name="content_type", dtype=DataType.VARCHAR, max_length=20),  # text/image/table
+    FieldSchema(name="raw_content", dtype=DataType.VARCHAR, max_length=65535),
+    
+    # 文本内容
+    FieldSchema(name="text_content", dtype=DataType.VARCHAR, max_length=16384),
+    
+    # 图像内容
+    FieldSchema(name="image_path", dtype=DataType.VARCHAR, max_length=512),
+    FieldSchema(name="image_description", dtype=DataType.VARCHAR, max_length=2048),
+    
+    # 表格内容  
+    FieldSchema(name="table_json", dtype=DataType.JSON),
+    
+    # 向量字段
+    FieldSchema(name="text_embedding", dtype=DataType.FLOAT_VECTOR, dim=768),
+    FieldSchema(name="image_embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
+    
+    # 元数据
+    FieldSchema(name="metadata", dtype=DataType.JSON),
+]
+
+# 创建集合
+schema = CollectionSchema(fields, "多模态RAG数据存储")
+collection = Collection("multimodal_chunks", schema)
+def insert_multimodal_data(collection, data_list):
+    """插入多模态数据"""
+    
+    # 准备批量插入数据
+    chunk_ids = []
+    document_ids = []
+    content_types = []
+    text_contents = []
+    image_paths = []
+    image_descriptions = []
+    table_jsons = []
+    text_embeddings = []
+    image_embeddings = []
+    metadatas = []
+    
+    for data in data_list:
+        chunk_ids.append(data["chunk_id"])
+        document_ids.append(data["document_id"])
+        content_types.append(data["content_type"])
+        
+        # 根据内容类型处理不同字段
+        if data["content_type"] == "text":
+            text_contents.append(data["text_content"])
+            image_paths.append("")
+            image_descriptions.append("")
+            table_jsons.append({})
+            text_embeddings.append(get_text_embedding(data["text_content"]))
+            image_embeddings.append([0.0] * 512)  # 空图像嵌入
+            
+        elif data["content_type"] == "image":
+            text_contents.append(data.get("text_content", ""))
+            image_paths.append(data["image_path"])
+            image_descriptions.append(data.get("image_description", ""))
+            table_jsons.append({})
+            text_embeddings.append(get_text_embedding(data.get("text_content", "") or data.get("image_description", "")))
+            image_embeddings.append(get_image_embedding(data["image_path"]))
+            
+        elif data["content_type"] == "table":
+            text_contents.append(data.get("text_content", ""))
+            image_paths.append("")
+            image_descriptions.append("")
+            table_jsons.append(data["table_data"])
+            text_embeddings.append(get_text_embedding(data.get("text_content", "") or str(data["table_data"])))
+            image_embeddings.append([0.0] * 512)
+        
+        metadatas.append(data.get("metadata", {}))
+    
+    # 批量插入
+    collection.insert([
+        chunk_ids, document_ids, content_types, text_contents, 
+        image_paths, image_descriptions, table_jsons,
+        text_embeddings, image_embeddings, metadatas
+    ])
+    
+    collection.flush()
+
+def setup_indexes(collection):
+    """设置向量索引"""
+    
+    # 文本嵌入索引
+    collection.create_index(
+        field_name="text_embedding",
+        index_params={
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE", 
+            "params": {"nlist": 1024}
+        }
+    )
+    
+    # 图像嵌入索引
+    collection.create_index(
+        field_name="image_embedding",
+        index_params={
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE",
+            "params": {"nlist": 512}
+        }
+    )
+
+class SimpleMultimodalRetriever:
+    """简化的多模态检索器"""
+    
+    def __init__(self, collection):
+        self.collection = collection
+        collection.load()
+    
+    def search(self, query_text=None, query_image_path=None, top_k=10):
+        """多模态检索"""
+        
+        results = []
+        
+        # 文本检索
+        if query_text:
+            text_embedding = get_text_embedding(query_text)
+            text_results = self.collection.search(
+                data=[text_embedding],
+                anns_field="text_embedding", 
+                param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+                limit=top_k,
+                output_fields=["chunk_id", "content_type", "text_content", "image_description", "metadata"]
+            )
+            results.extend(self._format_results(text_results[0], "text"))
+        
+        # 图像检索
+        if query_image_path:
+            image_embedding = get_image_embedding(query_image_path)
+            image_results = self.collection.search(
+                data=[image_embedding],
+                anns_field="image_embedding",
+                param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+                limit=top_k, 
+                output_fields=["chunk_id", "content_type", "text_content", "image_description", "metadata"]
+            )
+            results.extend(self._format_results(image_results[0], "image"))
+        
+        # 简单去重和排序
+        seen_ids = set()
+        unique_results = []
+        for result in sorted(results, key=lambda x: x["score"], reverse=True):
+            if result["chunk_id"] not in seen_ids:
+                unique_results.append(result)
+                seen_ids.add(result["chunk_id"])
+        
+        return unique_results[:top_k]
+    
+    def _format_results(self, raw_results, search_type):
+        """格式化结果"""
+        formatted = []
+        for hit in raw_results:
+            formatted.append({
+                "chunk_id": hit.id,
+                "score": hit.score,
+                "content_type": hit.entity.get("content_type"),
+                "text_content": hit.entity.get("text_content"),
+                "image_description": hit.entity.get("image_description"),
+                "metadata": hit.entity.get("metadata", {}),
+                "search_type": search_type
+            })
+        return formatted
+
+def manage_data(collection):
+    """数据管理功能"""
+    
+    # 删除文档的所有分块
+    def delete_document(document_id):
+        expr = f'document_id == "{document_id}"'
+        collection.delete(expr)
+    
+    # 查询文档统计
+    def get_document_stats(document_id):
+        expr = f'document_id == "{document_id}"'
+        results = collection.query(expr, output_fields=["content_type"])
+        
+        stats = {"total": len(results)}
+        for item in results:
+            content_type = item["content_type"]
+            stats[content_type] = stats.get(content_type, 0) + 1
+            
+        return stats
+    
+    # 清空集合
+    def clear_collection():
+        expr = 'chunk_id != ""'  # 删除所有数据
+        collection.delete(expr)
+    
+    return {
+        "delete_document": delete_document,
+        "get_stats": get_document_stats, 
+        "clear": clear_collection
+    }
