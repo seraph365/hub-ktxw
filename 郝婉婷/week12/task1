@@ -1,0 +1,216 @@
+
+from fastmcp import FastMCP
+import datetime
+
+# 创建MCP服务器
+mcp = FastMCP("SimpleAssistant")
+
+# 任务存储
+tasks = []
+
+# 工具1: 创建任务
+@mcp.tool()
+def create_task(title: str, description: str = "") -> dict:
+    创建新任务
+    task = {
+        "id": len(tasks) + 1,
+        "title": title,
+        "description": description,
+        "created_at": datetime.datetime.now().isoformat(),
+        "completed": False
+    }
+    tasks.append(task)
+    return {"status": "success", "message": f"任务 '{title}' 已创建", "task": task}
+
+工具2: 获取任务列表
+@mcp.tool()
+def get_tasks() -> dict:
+    """获取所有任务"""
+    return {
+        "status": "success", 
+        "count": len(tasks),
+        "tasks": tasks
+    }
+
+工具3: 完成任务
+@mcp.tool()
+def complete_task(task_id: int) -> dict:
+    """标记任务为完成"""
+    if task_id < 1 or task_id > len(tasks):
+        return {"status": "error", "message": "任务ID无效"}
+    
+    tasks[task_id-1]["completed"] = True
+    return {"status": "success", "message": f"任务 {task_id} 已完成"}
+
+工具4: 计算器
+@mcp.tool()
+def calculate(expression: str) -> dict:
+    """计算数学表达式"""
+    try:
+        # 安全计算
+        result = eval(expression, {"__builtins__": {}})
+        return {"status": "success", "result": result}
+    except Exception as e:
+        return {"status": "error", "message": f"计算错误: {e}"}
+
+工具5: 获取时间
+@mcp.tool()
+def get_time() -> dict:
+    """获取当前时间"""
+    now = datetime.datetime.now()
+    return {
+        "status": "success",
+        "time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now.isoformat()
+    }
+
+if __name__ == "__main__":
+    print("简易MCP服务器启动中...")
+    print("可用工具:")
+    print("  - create_task: 创建任务")
+    print("  - get_tasks: 获取任务列表")
+    print("  - complete_task: 完成任务")
+    print("  - calculate: 计算器")
+    print("  - get_time: 获取时间")
+    mcp.run()
+
+
+"""
+简易Streamlit界面
+"""
+import streamlit as st
+import subprocess
+import sys
+import json
+
+# 页面设置
+st.set_page_config(page_title="简易助手", layout="wide")
+st.title("🤖 简易职能助手")
+
+# 工具函数 - 直接调用本地函数（简易方式）
+tasks = []
+
+def create_task_local(title, description=""):
+    """本地创建任务"""
+    task = {
+        "id": len(tasks) + 1,
+        "title": title,
+        "description": description,
+        "completed": False
+    }
+    tasks.append(task)
+    return task
+
+def get_tasks_local():
+    """本地获取任务"""
+    return tasks
+
+def complete_task_local(task_id):
+    """本地完成任务"""
+    if 0 < task_id <= len(tasks):
+        tasks[task_id-1]["completed"] = True
+        return True
+    return False
+
+# 标签页
+tab1, tab2, tab3 = st.tabs(["📝 任务管理", "🧮 计算器", "⚙️ 服务器控制"])
+
+# 标签页1: 任务管理
+with tab1:
+    st.header("任务管理")
+    
+    # 创建新任务
+    with st.form("创建任务表单"):
+        title = st.text_input("任务标题", placeholder="输入任务标题")
+        description = st.text_area("任务描述", placeholder="输入任务描述")
+        if st.form_submit_button("创建任务"):
+            if title:
+                task = create_task_local(title, description)
+                st.success(f"任务 '{title}' 创建成功！")
+                st.rerun()
+            else:
+                st.warning("请输入任务标题")
+    
+    # 显示任务列表
+    st.subheader("任务列表")
+    if not tasks:
+        st.info("暂无任务")
+    else:
+        for task in tasks:
+            status = "✅" if task["completed"] else "⏳"
+            st.write(f"{status} **{task['title']}**")
+            if task["description"]:
+                st.caption(task["description"])
+            
+            col1, col2 = st.columns([6, 1])
+            with col2:
+                if not task["completed"]:
+                    if st.button("完成", key=f"complete_{task['id']}"):
+                        complete_task_local(task['id'])
+                        st.rerun()
+
+# 标签页2: 计算器
+with tab2:
+    st.header("计算器")
+    
+    expression = st.text_input("输入表达式", placeholder="例如：2 + 3 * 4")
+    if st.button("计算"):
+        if expression:
+            try:
+                # 安全计算
+                result = eval(expression, {"__builtins__": {}})
+                st.success(f"结果: **{result}**")
+            except Exception as e:
+                st.error(f"计算错误: {e}")
+        else:
+            st.warning("请输入表达式")
+
+# 标签页3: 服务器控制
+with tab3:
+    st.header("MCP服务器控制")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("启动MCP服务器"):
+            try:
+                # 启动MCP服务器（后台）
+                process = subprocess.Popen(
+                    [sys.executable, "mcp_server_main.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                st.session_state.mcp_process = process
+                st.success("MCP服务器已启动")
+            except Exception as e:
+                st.error(f"启动失败: {e}")
+    
+    with col2:
+        if st.button("停止MCP服务器", disabled="mcp_process" not in st.session_state):
+            if "mcp_process" in st.session_state:
+                st.session_state.mcp_process.terminate()
+                del st.session_state.mcp_process
+                st.success("MCP服务器已停止")
+    
+    # 显示服务器信息
+    st.subheader("服务器状态")
+    st.info("MCP服务器提供了5个工具：创建任务、获取任务、完成任务、计算器、获取时间")
+
+# 侧边栏
+with st.sidebar:
+    st.header("📊 统计")
+    st.metric("任务总数", len(tasks))
+    st.metric("未完成", len([t for t in tasks if not t["completed"]]))
+    
+    st.divider()
+    
+    st.header("⚡ 快捷操作")
+    if st.button("清空已完成任务"):
+        global tasks
+        tasks = [t for t in tasks if not t["completed"]]
+        st.rerun()
+
+# 页脚
+st.divider()
+st.caption("简易职能助手 v1.0 | 使用 Streamlit + FastMCP 构建")
