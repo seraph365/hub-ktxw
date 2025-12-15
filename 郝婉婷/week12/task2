@@ -1,0 +1,51 @@
+from typing import Literal
+import mcp
+from mcp.types import TextContent
+from textblob import TextBlob
+from pydantic import BaseModel
+
+class SentimentResult(BaseModel):
+    sentiment: Literal["POSITIVE", "NEGATIVE", "NEUTRAL"]
+    polarity: float
+    subjectivity: float
+
+@mcp.tool
+async def sentiment_classification(
+    text: str = mcp.TextParameter(description="The text to analyze for sentiment")
+) -> list[TextContent]:
+    """Classifies the sentiment of a given text into POSITIVE, NEGATIVE or NEUTRAL."""
+    
+    try:
+        # 使用TextBlob进行情感分析
+        blob = TextBlob(text)
+        polarity = blob.sentiment.polarity
+        subjectivity = blob.sentiment.subjectivity
+        
+        # 根据极性分数判断情感
+        if polarity > 0.1:
+            sentiment = "POSITIVE"
+        elif polarity < -0.1:
+            sentiment = "NEGATIVE"
+        else:
+            sentiment = "NEUTRAL"
+        
+        result = SentimentResult(
+            sentiment=sentiment,
+            polarity=round(polarity, 3),
+            subjectivity=round(subjectivity, 3)
+        )
+        
+        return [TextContent(
+            type="text",
+            text=f"Sentiment Analysis Result:\n"
+                 f"- Sentiment: {result.sentiment}\n"
+                 f"- Polarity: {result.polarity} (range: -1 to 1)\n"
+                 f"- Subjectivity: {result.subjectivity} (range: 0 to 1)\n"
+                 f"- Analysis: {'More subjective' if result.subjectivity > 0.5 else 'More objective'}"
+        )]
+        
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"Error in sentiment analysis: {str(e)}"
+        )]
