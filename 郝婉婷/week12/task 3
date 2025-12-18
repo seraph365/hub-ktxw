@@ -1,0 +1,247 @@
+from typing import Dict, List, Optional, Any
+import mcp
+from mcp.types import TextContent
+import re
+
+# 定义工具组
+TOOL_GROUPS = {
+    "news": ["get_news", "search_news", "news_headlines"],
+    "tools": ["sentiment_analysis", "calculator", "translator"],
+    "general": ["help", "list_tools"]
+}
+
+# 关键词映射
+KEYWORD_MAPPING = {
+    "news": ["新闻", "头条", "news", "headline", "latest", "update", "报道"],
+    "tools": ["分析", "计算", "翻译", "sentiment", "calculate", "translate", "工具"],
+    "general": ["帮助", "帮助", "list", "available", "what can you do"]
+}
+
+class ToolFilter:
+    """工具过滤器，根据用户输入智能选择工具"""
+    
+    def __init__(self):
+        self.current_mode = "general"  # 默认模式
+        self.user_history = []  # 用户历史对话
+        
+    def analyze_intent(self, user_input: str) -> str:
+        """分析用户意图，返回工具组类别"""
+        user_input_lower = user_input.lower()
+        
+        # 检查新闻相关关键词
+        for keyword in KEYWORD_MAPPING["news"]:
+            if keyword in user_input_lower:
+                return "news"
+        
+        # 检查工具相关关键词
+        for keyword in KEYWORD_MAPPING["tools"]:
+            if keyword in user_input_lower:
+                return "tools"
+        
+        # 默认返回当前模式
+        return self.current_mode
+    
+    def filter_tools(self, available_tools: List[str], user_input: str) -> List[str]:
+        """过滤工具列表，只返回相关的工具"""
+        intent = self.analyze_intent(user_input)
+        
+        # 更新当前模式
+        self.current_mode = intent
+        
+        # 保存用户输入到历史
+        self.user_history.append(user_input[:100])  # 只保存前100字符
+        if len(self.user_history) > 10:  # 保留最近10条
+            self.user_history = self.user_history[-10:]
+        
+        # 返回过滤后的工具
+        filtered = []
+        if intent in TOOL_GROUPS:
+            # 返回该组的所有可用工具
+            for tool in available_tools:
+                if tool in TOOL_GROUPS[intent]:
+                    filtered.append(tool)
+        
+        # 如果没找到相关工具，返回通用工具
+        if not filtered:
+            filtered = [tool for tool in available_tools 
+                       if tool in TOOL_GROUPS["general"]]
+        
+        return filtered
+    
+    def get_recommended_tools(self, user_input: str) -> List[str]:
+        """获取推荐的工具（不依赖可用工具列表）"""
+        intent = self.analyze_intent(user_input)
+        return TOOL_GROUPS.get(intent, TOOL_GROUPS["general"])
+
+# 全局过滤器实例
+tool_filter = ToolFilter()
+
+# 新闻工具示例
+@mcp.tool
+async def get_news(
+    category: str = mcp.TextParameter(
+        description="新闻分类，如：科技、财经、体育、娱乐"
+    ),
+    limit: int = mcp.NumberParameter(
+        description="返回新闻数量，默认5条", default=5
+    )
+) -> List[TextContent]:
+    """获取指定分类的新闻"""
+    return [TextContent(
+        type="text",
+        text=f"获取 {category} 新闻 {limit} 条\n"
+             f"1. 示例新闻标题 1\n"
+             f"2. 示例新闻标题 2\n"
+    )]
+
+@mcp.tool
+async def search_news(
+    keyword: str = mcp.TextParameter(description="搜索关键词"),
+    date: Optional[str] = mcp.TextParameter(
+        description="日期范围，如：2024-01-01", required=False
+    )
+) -> List[TextContent]:
+    """搜索新闻"""
+    return [TextContent(
+        type="text",
+        text=f"搜索新闻关键词: {keyword}\n"
+             f"找到相关新闻: 10 条\n"
+    )]
+
+# 通用工具示例
+@mcp.tool
+async def sentiment_analysis(
+    text: str = mcp.TextParameter(description="要分析的文本")
+) -> List[TextContent]:
+    """情感分析"""
+    return [TextContent(
+        type="text",
+        text=f"文本情感分析结果:\n"
+             f"文本: {text[:50]}...\n"
+             f"情感: 正面\n"
+             f"置信度: 85%"
+    )]
+
+@mcp.tool
+async def calculate(
+    expression: str = mcp.TextParameter(description="数学表达式")
+) -> List[TextContent]:
+    """计算器"""
+    try:
+        result = eval(expression)  # 注意：生产环境应用更安全的计算方式
+        return [TextContent(
+            type="text",
+            text=f"计算结果: {expression} = {result}"
+        )]
+    except:
+        return [TextContent(
+            type="text",
+            text=f"无法计算表达式: {expression}"
+        )]
+
+# 辅助工具：查看可用工具
+@mcp.tool
+async def list_available_tools(
+    category: Optional[str] = mcp.TextParameter(
+        description="工具分类，可选：news, tools, all", 
+        required=False
+    )
+) -> List[TextContent]:
+    """列出可用的工具"""
+    if category == "news":
+        tools = TOOL_GROUPS["news"]
+    elif category == "tools":
+        tools = TOOL_GROUPS["tools"]
+    else:
+        tools = list(set(TOOL_GROUPS["news"] + TOOL_GROUPS["tools"]))
+    
+    return [TextContent(
+        type="text",
+        text=f"可用工具 ({category or 'all'}):\n" + 
+             "\n".join([f"- {tool}" for tool in tools])
+    )]
+
+# 智能工具调用接口
+@mcp.tool
+async def smart_call(
+    user_input: str = mcp.TextParameter(description="用户输入的自然语言指令")
+) -> List[TextContent]:
+    """智能调用工具：根据用户输入自动选择合适工具"""
+    
+    # 分析意图
+    intent = tool_filter.analyze_intent(user_input)
+    
+    # 根据意图调用不同工具
+    if intent == "news":
+        # 提取新闻相关参数
+        if "搜索" in user_input or "search" in user_input.lower():
+            # 提取关键词
+            keyword = extract_keyword(user_input, ["搜索", "查找", "search"])
+            return await search_news(keyword=keyword)
+        else:
+            # 提取分类
+            categories = ["科技", "财经", "体育", "娱乐", "政治"]
+            category = "综合"
+            for cat in categories:
+                if cat in user_input:
+                    category = cat
+                    break
+            return await get_news(category=category)
+    
+    elif intent == "tools":
+        if "情感" in user_input or "sentiment" in user_input.lower():
+            # 提取分析文本
+            text = extract_text_for_analysis(user_input)
+            return await sentiment_analysis(text=text)
+        elif "计算" in user_input or "calculate" in user_input.lower():
+            # 提取数学表达式
+            expression = extract_expression(user_input)
+            return await calculate(expression=expression)
+    
+    # 默认回复
+    return [TextContent(
+        type="text",
+        text=f"我理解了您想进行 {intent} 相关操作。\n"
+             f"请使用具体工具，或说'帮助'查看可用工具。"
+    )]
+
+def extract_keyword(text: str, triggers: List[str]) -> str:
+    """从文本中提取关键词"""
+    for trigger in triggers:
+        if trigger in text:
+            # 提取触发词后的内容
+            parts = text.split(trigger)
+            if len(parts) > 1:
+                return parts[1].strip()
+    return text  # 返回原文本
+
+def extract_text_for_analysis(text: str) -> str:
+    """提取要分析的文本"""
+    triggers = ["分析", "情感分析", "分析一下", "sentiment"]
+    for trigger in triggers:
+        if trigger in text:
+            parts = text.split(trigger)
+            if len(parts) > 1:
+                return parts[1].strip()
+    # 如果没有触发词，返回去掉标点的文本
+    return re.sub(r'[^\w\s]', '', text)
+
+def extract_expression(text: str) -> str:
+    """提取数学表达式"""
+    # 简单的提取逻辑，实际应用需要更复杂的处理
+    import re
+    # 匹配常见的数学表达式模式
+    patterns = [
+        r'(\d+[\+\-\*/]\d+)',  # 简单运算
+        r'计算(.+?)($|。|，|！)',  # "计算..."模式
+        r'what is (.+?)\?'  # 英文模式
+    ]
+    
+    for pattern in patterns:
+        matches = re.findall(pattern, text)
+        if matches:
+            if isinstance(matches[0], tuple):
+                return matches[0][0].strip()
+            return matches[0].strip()
+    
+    return "1+1"  # 默认返回简单表达式
