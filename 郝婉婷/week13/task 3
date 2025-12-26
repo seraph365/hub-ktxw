@@ -1,0 +1,164 @@
+import random
+from datetime import datetime
+
+class ChitChatAgent(BaseAgent):
+    """闲聊Agent"""
+    
+    def __init__(self):
+        super().__init__(AgentType.CHITCHAT, "闲聊助手")
+        self.greetings = ["你好！", "嗨！", "很高兴见到你！"]
+        self.responses = {
+            "天气": ["今天天气不错呢！", "看起来要下雨，记得带伞哦~"],
+            "心情": ["希望你今天过得愉快！", "有什么开心的事可以和我分享吗？"],
+            "问候": ["你好呀！我是你的聊天助手。", "有什么我可以帮你的吗？"],
+            "时间": [f"现在是{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"],
+        }
+        
+    async def process(self, message: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """处理闲聊消息"""
+        self.context = context or {}
+        
+        # 简单的意图识别
+        if any(word in message for word in ["你好", "嗨", "hello", "hi"]):
+            response = random.choice(self.greetings)
+        elif "天气" in message:
+            response = random.choice(self.responses["天气"])
+        elif "时间" in message:
+            response = random.choice(self.responses["时间"])
+        elif "心情" in message:
+            response = random.choice(self.responses["心情"])
+        else:
+            response = "我在听呢，继续说吧~"
+            
+        return {
+            "agent_type": self.agent_type,
+            "response": response,
+            "confidence": 0.9,
+            "suggested_next": None,
+            "context_update": {"last_chat_time": datetime.now().isoformat()}
+        }
+    
+    def should_handoff(self, message: str) -> Optional[AgentType]:
+        """检测是否需要切换到股票Agent"""
+        stock_keywords = ["股票", "股价", "涨跌", "股市", "K线", "涨停", "跌停", 
+                         "上证", "深证", "创业板", "港股", "美股", "财报"]
+        
+        if any(keyword in message for keyword in stock_keywords):
+            return AgentType.STOCK
+        return None
+
+###股票agent实现
+import asyncio
+from typing import List
+
+class StockAgent(BaseAgent):
+    """股票Agent"""
+    
+    def __init__(self):
+        super().__init__(AgentType.STOCK, "股票助手")
+        self.stock_data = {
+            "AAPL": {"price": 185.25, "change": 1.5, "change_percent": 0.82},
+            "GOOGL": {"price": 142.30, "change": -0.5, "change_percent": -0.35},
+            "TSLA": {"price": 245.80, "change": 3.2, "change_percent": 1.32},
+        }
+        
+    async def process(self, message: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """处理股票相关消息"""
+        self.context = context or {}
+        
+        # 提取股票代码
+        stock_codes = self._extract_stock_codes(message)
+        
+        if "查询" in message or "价格" in message:
+            return await self._query_stock_price(stock_codes)
+        elif "分析" in message or "趋势" in message:
+            return await self._analyze_stock(stock_codes)
+        elif "推荐" in message or "建议" in message:
+            return await self._get_recommendations()
+        else:
+            return {
+                "agent_type": self.agent_type,
+                "response": "请问您想了解股票价格、分析还是推荐？",
+                "confidence": 0.7,
+                "suggested_next": None,
+                "context_update": {}
+            }
+    
+    def _extract_stock_codes(self, message: str) -> List[str]:
+        """从消息中提取股票代码"""
+        codes = []
+        for code in self.stock_data.keys():
+            if code in message.upper():
+                codes.append(code)
+        return codes
+    
+    async def _query_stock_price(self, stock_codes: List[str]) -> Dict[str, Any]:
+        """查询股票价格"""
+        if not stock_codes:
+            response = "请告诉我您想查询哪只股票？例如：AAPL的价格是多少？"
+        else:
+            responses = []
+            for code in stock_codes:
+                if code in self.stock_data:
+                    data = self.stock_data[code]
+                    responses.append(
+                        f"{code}: 价格${data['price']}, "
+                        f"{'涨' if data['change'] > 0 else '跌'}{abs(data['change'])}({data['change_percent']}%)"
+                    )
+                else:
+                    responses.append(f"找不到股票 {code} 的信息")
+            response = "\n".join(responses)
+        
+        return {
+            "agent_type": self.agent_type,
+            "response": response,
+            "confidence": 0.95,
+            "suggested_next": "是否需要我为您分析趋势？",
+            "context_update": {"last_queried_stocks": stock_codes}
+        }
+    
+    async def _analyze_stock(self, stock_codes: List[str]) -> Dict[str, Any]:
+        """分析股票趋势"""
+        # 模拟分析过程
+        await asyncio.sleep(0.1)  # 模拟网络请求
+        
+        analysis_results = []
+        for code in stock_codes or ["AAPL", "GOOGL", "TSLA"][:2]:
+            analysis_results.append(
+                f"{code}: 近期呈现上涨趋势，建议关注。"
+            )
+        
+        response = "分析结果：\n" + "\n".join(analysis_results)
+        
+        return {
+            "agent_type": self.agent_type,
+            "response": response,
+            "confidence": 0.85,
+            "suggested_next": "需要查看其他股票吗？",
+            "context_update": {"last_analyzed_stocks": stock_codes}
+        }
+    
+    async def _get_recommendations(self) -> Dict[str, Any]:
+        """获取股票推荐"""
+        # 模拟推荐逻辑
+        recommendations = [
+            "推荐关注科技股：AAPL, GOOGL",
+            "新能源板块：TSLA 有潜力",
+            "建议分散投资，控制风险"
+        ]
+        
+        return {
+            "agent_type": self.agent_type,
+            "response": "\n".join(recommendations),
+            "confidence": 0.8,
+            "suggested_next": "需要具体分析某只股票吗？",
+            "context_update": {"recommendation_time": datetime.now().isoformat()}
+        }
+    
+    def should_handoff(self, message: str) -> Optional[AgentType]:
+        """检测是否需要切换到闲聊Agent"""
+        chitchat_keywords = ["闲聊", "聊天", "你好", "今天天气", "心情"]
+        
+        if any(keyword in message for keyword in chitchat_keywords):
+            return AgentType.CHITCHAT
+        return None
